@@ -10,6 +10,9 @@ import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
+import OutCall "http-outcalls/outcall";
+
+
 
 actor {
   let accessControlState = AccessControl.initState();
@@ -411,7 +414,50 @@ actor {
     };
   };
 
-  public func systemDescription() : async Text {
+  public shared func systemDescription() : async Text {
     "Om.ai - ChatGPT-like application with role-based access control. Users can register, login, manage conversations, and send messages. Guest users can chat without an account. Admin has special privileges to access all users and conversations. Developed by Om Awasthi, 2024.";
+  };
+
+  // ---- DeepSeek ----
+
+  public query func transform(input : OutCall.TransformationInput) : async OutCall.TransformationOutput {
+    OutCall.transform(input);
+  };
+
+  func validDeepSeekApiKey(apiKey : Text) : Bool {
+    apiKey == "sk-6f24f0f354fb4c0a8080200b938bf875";
+  };
+
+  func getValidApiKey() : Text {
+    "sk-6f24f0f354fb4c0a8080200b938bf875";
+  };
+
+  public shared func callDeepSeek(userMessage : Text) : async Text {
+    let apiKey = getValidApiKey();
+    if (not validDeepSeekApiKey(apiKey)) {
+      Runtime.trap("Invalid DeepSeek API key");
+    };
+
+    let url = "https://api.deepseek.com/v1/chat/completions";
+    let systemMessage = "You are Om, a helpful AI assistant on Om.ai platform. You answer in the same language the user writes in (Hindi or English). Be concise, accurate, and friendly. For coding questions, provide clean code examples.";
+
+    let body = "{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"system\",\"content\":\"" # systemMessage # "\"},{\"role\":\"user\",\"content\":\"" # userMessage # "\"}]}";
+
+    let headers = [
+      {
+        name = "Authorization";
+        value = "Bearer " # apiKey;
+      },
+      {
+        name = "Content-Type";
+        value = "application/json";
+      },
+    ];
+
+    let response = await OutCall.httpPostRequest(url, headers, body, transform);
+    if (response.size() == 0) {
+      Runtime.trap("Failed to get response from OutCall");
+    };
+    response;
   };
 };

@@ -31,11 +31,35 @@ export const UserProfile = IDL.Record({
   'createdDate' : IDL.Int,
   'email' : IDL.Text,
 });
+export const http_header = IDL.Record({
+  'value' : IDL.Text,
+  'name' : IDL.Text,
+});
+export const http_request_result = IDL.Record({
+  'status' : IDL.Nat,
+  'body' : IDL.Vec(IDL.Nat8),
+  'headers' : IDL.Vec(http_header),
+});
+export const TransformationInput = IDL.Record({
+  'context' : IDL.Vec(IDL.Nat8),
+  'response' : http_request_result,
+});
+export const TransformationOutput = IDL.Record({
+  'status' : IDL.Nat,
+  'body' : IDL.Vec(IDL.Nat8),
+  'headers' : IDL.Vec(http_header),
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'callDeepSeek' : IDL.Func([IDL.Text], [IDL.Text], []),
   'createConversation' : IDL.Func([IDL.Text], [Conversation], []),
+  'createGuestConversation' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [Conversation],
+      [],
+    ),
   'getAllConversations' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(Conversation)))],
@@ -46,6 +70,16 @@ export const idlService = IDL.Service({
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getConversation' : IDL.Func([IDL.Nat], [Conversation], ['query']),
   'getConversations' : IDL.Func([], [IDL.Vec(Conversation)], ['query']),
+  'getGuestConversations' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(Conversation)],
+      ['query'],
+    ),
+  'getGuestMessages' : IDL.Func(
+      [IDL.Text, IDL.Nat],
+      [IDL.Vec(Message)],
+      ['query'],
+    ),
   'getMessages' : IDL.Func([IDL.Nat], [IDL.Vec(Message)], ['query']),
   'getProfile' : IDL.Func([IDL.Text], [UserProfile], ['query']),
   'getUserConversation' : IDL.Func(
@@ -66,9 +100,19 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'login' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'sendGuestMessage' : IDL.Func(
+      [IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+      [Message],
+      [],
+    ),
   'sendMessage' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Message], []),
   'signUp' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
   'systemDescription' : IDL.Func([], [IDL.Text], []),
+  'transform' : IDL.Func(
+      [TransformationInput],
+      [TransformationOutput],
+      ['query'],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -97,11 +141,32 @@ export const idlFactory = ({ IDL }) => {
     'createdDate' : IDL.Int,
     'email' : IDL.Text,
   });
+  const http_header = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
+  const http_request_result = IDL.Record({
+    'status' : IDL.Nat,
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(http_header),
+  });
+  const TransformationInput = IDL.Record({
+    'context' : IDL.Vec(IDL.Nat8),
+    'response' : http_request_result,
+  });
+  const TransformationOutput = IDL.Record({
+    'status' : IDL.Nat,
+    'body' : IDL.Vec(IDL.Nat8),
+    'headers' : IDL.Vec(http_header),
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'callDeepSeek' : IDL.Func([IDL.Text], [IDL.Text], []),
     'createConversation' : IDL.Func([IDL.Text], [Conversation], []),
+    'createGuestConversation' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [Conversation],
+        [],
+      ),
     'getAllConversations' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Vec(Conversation)))],
@@ -112,6 +177,16 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getConversation' : IDL.Func([IDL.Nat], [Conversation], ['query']),
     'getConversations' : IDL.Func([], [IDL.Vec(Conversation)], ['query']),
+    'getGuestConversations' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(Conversation)],
+        ['query'],
+      ),
+    'getGuestMessages' : IDL.Func(
+        [IDL.Text, IDL.Nat],
+        [IDL.Vec(Message)],
+        ['query'],
+      ),
     'getMessages' : IDL.Func([IDL.Nat], [IDL.Vec(Message)], ['query']),
     'getProfile' : IDL.Func([IDL.Text], [UserProfile], ['query']),
     'getUserConversation' : IDL.Func(
@@ -132,6 +207,11 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'login' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'sendGuestMessage' : IDL.Func(
+        [IDL.Text, IDL.Nat, IDL.Text, IDL.Text],
+        [Message],
+        [],
+      ),
     'sendMessage' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [Message], []),
     'signUp' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
@@ -139,6 +219,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'systemDescription' : IDL.Func([], [IDL.Text], []),
+    'transform' : IDL.Func(
+        [TransformationInput],
+        [TransformationOutput],
+        ['query'],
+      ),
   });
 };
 

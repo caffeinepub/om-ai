@@ -22,6 +22,15 @@ export interface Message {
   'role' : string,
   'timestamp' : bigint,
 }
+export interface TransformationInput {
+  'context' : Uint8Array,
+  'response' : http_request_result,
+}
+export interface TransformationOutput {
+  'status' : bigint,
+  'body' : Uint8Array,
+  'headers' : Array<http_header>,
+}
 export interface UserProfile {
   'username' : string,
   'displayName' : string,
@@ -31,10 +40,18 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface http_header { 'value' : string, 'name' : string }
+export interface http_request_result {
+  'status' : bigint,
+  'body' : Uint8Array,
+  'headers' : Array<http_header>,
+}
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'callDeepSeek' : ActorMethod<[string], string>,
   'createConversation' : ActorMethod<[string], Conversation>,
+  'createGuestConversation' : ActorMethod<[string, string], Conversation>,
   'getAllConversations' : ActorMethod<
     [],
     Array<[Principal, Array<Conversation>]>
@@ -44,6 +61,8 @@ export interface _SERVICE {
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getConversation' : ActorMethod<[bigint], Conversation>,
   'getConversations' : ActorMethod<[], Array<Conversation>>,
+  'getGuestConversations' : ActorMethod<[string], Array<Conversation>>,
+  'getGuestMessages' : ActorMethod<[string, bigint], Array<Message>>,
   'getMessages' : ActorMethod<[bigint], Array<Message>>,
   'getProfile' : ActorMethod<[string], UserProfile>,
   'getUserConversation' : ActorMethod<[Principal, bigint], Conversation>,
@@ -52,9 +71,11 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'login' : ActorMethod<[string, string], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'sendGuestMessage' : ActorMethod<[string, bigint, string, string], Message>,
   'sendMessage' : ActorMethod<[bigint, string, string], Message>,
   'signUp' : ActorMethod<[string, string, string, string], boolean>,
   'systemDescription' : ActorMethod<[], string>,
+  'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

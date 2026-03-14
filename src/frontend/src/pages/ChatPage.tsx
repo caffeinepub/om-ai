@@ -29,12 +29,14 @@ import {
   Volume2,
   VolumeX,
   X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Conversation, Message } from "../backend.d";
 import { RobotMascot } from "../components/RobotMascot";
 import { useActor } from "../hooks/useActor";
+import { getDeepSeekResponse } from "../utils/deepseekAPI";
 import { getMockResponse } from "../utils/mockAI";
 
 interface ChatPageProps {
@@ -46,7 +48,6 @@ interface ChatPageProps {
   onSignUp?: () => void;
 }
 
-// Local optimistic message shape
 interface LocalMessage {
   id: string;
   role: string;
@@ -235,6 +236,7 @@ export function ChatPage({
   const [isTyping, setIsTyping] = useState(false);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [usingRealAI, setUsingRealAI] = useState(false);
   // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const [voiceLang, setVoiceLang] = useState<"hi-IN" | "en-US">("en-US");
@@ -242,6 +244,7 @@ export function ChatPage({
   const [isSpeaking, setIsSpeaking] = useState(false);
   // Local optimistic messages
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const activeConvIdRef = useRef<bigint | null>(null);
@@ -258,7 +261,6 @@ export function ChatPage({
       if (!actor) return [];
       if (isGuest) {
         if (!guestSessionId) return [];
-        // biome-ignore lint/suspicious/noExplicitAny: guest API not in generated types
         return (actor as any).getGuestConversations(guestSessionId);
       }
       return actor.getConversations();
@@ -275,7 +277,6 @@ export function ChatPage({
     queryFn: async () => {
       if (!actor || !activeConvId) return [];
       if (isGuest) {
-        // biome-ignore lint/suspicious/noExplicitAny: guest API not in generated types
         return (actor as any).getGuestMessages(guestSessionId, activeConvId);
       }
       return actor.getMessages(activeConvId);
@@ -300,7 +301,7 @@ export function ChatPage({
     }
   }, [conversations, activeConvId]);
 
-  // Clear local messages when switching conversation (via ref comparison)
+  // Clear local messages when switching conversation
   useEffect(() => {
     if (activeConvIdRef.current !== activeConvId) {
       activeConvIdRef.current = activeConvId;
@@ -308,17 +309,28 @@ export function ChatPage({
     }
   });
 
+  // Auto-scroll to bottom whenever messages or typing state changes
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, []);
+
   const msgCount = messages.length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: ref-based scroll
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on message change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgCount, isTyping]);
+    // Small delay to ensure DOM is updated before scrolling
+    const timer = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timer);
+  }, [msgCount, isTyping, scrollToBottom]);
 
   const createConvMutation = useMutation({
     mutationFn: async (title: string) => {
       if (!actor) throw new Error("No actor");
       if (isGuest) {
-        // biome-ignore lint/suspicious/noExplicitAny: guest API not in generated types
         return (actor as any).createGuestConversation(guestSessionId, title);
       }
       return actor.createConversation(title);
@@ -342,7 +354,6 @@ export function ChatPage({
     }: { convId: bigint; content: string; role: string }) => {
       if (!actor) throw new Error("No actor");
       if (isGuest) {
-        // biome-ignore lint/suspicious/noExplicitAny: guest API not in generated types
         return (actor as any).sendGuestMessage(
           guestSessionId,
           convId,
@@ -372,7 +383,6 @@ export function ChatPage({
         convId = conv.id;
         setActiveConvId(conv.id);
       } catch {
-        // Backend unavailable — use local fallback ID so chat still works
         const fallbackId = BigInt(Date.now());
         convId = fallbackId;
         setActiveConvId(fallbackId);
@@ -384,7 +394,7 @@ export function ChatPage({
     setInput("");
     setIsTyping(true);
 
-    // Optimistic: show user message immediately
+    // Show user message immediately
     const userLocalMsg: LocalMessage = {
       id: `local-user-${Date.now()}`,
       role: "user",
@@ -392,22 +402,28 @@ export function ChatPage({
     };
     setLocalMessages((prev) => [...prev, userLocalMsg]);
 
+    // Save user message to backend (fire-and-forget)
+    sendMsgMutation
+      .mutateAsync({ convId, content: text, role: "user" })
+      .catch(() => {});
+
+    // Try DeepSeek API first, fall back to mock AI
+    let aiResponse: string;
     try {
-      await sendMsgMutation.mutateAsync({
-        convId,
-        content: text,
-        role: "user",
-      });
+      const deepseekResult = await getDeepSeekResponse(text, actor);
+      if (deepseekResult) {
+        aiResponse = deepseekResult;
+        setUsingRealAI(true);
+      } else {
+        aiResponse = getMockResponse(text);
+        setUsingRealAI(false);
+      }
     } catch {
-      // keep showing local message even on error
+      aiResponse = getMockResponse(text);
+      setUsingRealAI(false);
     }
 
-    const thinkTime = 800 + Math.random() * 1200;
-    await new Promise((r) => setTimeout(r, thinkTime));
-
-    const aiResponse = getMockResponse(text);
-
-    // Optimistic: show AI message immediately
+    // Show AI response
     const aiLocalMsg: LocalMessage = {
       id: `local-ai-${Date.now()}`,
       role: "assistant",
@@ -416,7 +432,7 @@ export function ChatPage({
     setLocalMessages((prev) => [...prev, aiLocalMsg]);
     setIsTyping(false);
 
-    // TTS auto-play with speaking state for robot animation
+    // TTS auto-play
     if (ttsEnabled && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(aiResponse);
@@ -428,19 +444,15 @@ export function ChatPage({
       window.speechSynthesis.speak(utter);
     }
 
-    try {
-      await sendMsgMutation.mutateAsync({
-        convId,
-        content: aiResponse,
-        role: "assistant",
-      });
-    } catch {
-      // local message already shown
-    }
+    // Save AI response to backend (fire-and-forget)
+    sendMsgMutation
+      .mutateAsync({ convId, content: aiResponse, role: "assistant" })
+      .catch(() => {});
   }, [
     input,
     activeConvId,
     isTyping,
+    actor,
     createConvMutation,
     sendMsgMutation,
     ttsEnabled,
@@ -462,7 +474,6 @@ export function ChatPage({
       setLocalMessages([]);
       setSidebarOpen(false);
     } catch {
-      // Use local fallback if backend is unavailable
       const fallbackId = BigInt(Date.now());
       setActiveConvId(fallbackId);
       setLocalMessages([]);
@@ -470,7 +481,6 @@ export function ChatPage({
     }
   }, [createConvMutation]);
 
-  // Voice input (speech-to-text)
   const handleMicToggle = useCallback(() => {
     const SpeechRecognitionAPI =
       (window as any).SpeechRecognition ||
@@ -543,7 +553,6 @@ export function ChatPage({
               <Plus size={14} />
             )}
           </Button>
-          {/* Mobile close sidebar */}
           <button
             type="button"
             onClick={closeSidebar}
@@ -689,7 +698,6 @@ export function ChatPage({
           }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {/* Hamburger - mobile only */}
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -704,7 +712,6 @@ export function ChatPage({
               <Menu size={16} />
             </button>
 
-            {/* Robot mascot in header - visible on md+ screens */}
             <div
               className="hidden md:flex items-center shrink-0"
               style={{ width: 30, height: 39, overflow: "hidden" }}
@@ -730,7 +737,20 @@ export function ChatPage({
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
-            {/* Voice lang toggle */}
+            {/* Real AI indicator */}
+            {usingRealAI && (
+              <div
+                className="hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold"
+                style={{
+                  background: "oklch(0.15 0.08 145)",
+                  border: "1px solid oklch(0.3 0.12 145)",
+                  color: "oklch(0.7 0.18 145)",
+                }}
+              >
+                <Zap size={10} /> Live AI
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() =>
@@ -748,7 +768,6 @@ export function ChatPage({
               {voiceLang === "en-US" ? "EN" : "HI"}
             </button>
 
-            {/* TTS mute/unmute */}
             <button
               type="button"
               onClick={() => {
@@ -843,7 +862,12 @@ export function ChatPage({
           </div>
         )}
 
-        <ScrollArea className="flex-1 px-3 md:px-8 py-4 md:py-6">
+        {/* Messages area - using regular div with overflow-y-auto for reliable scroll */}
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto px-3 md:px-8 py-4 md:py-6"
+          style={{ scrollBehavior: "smooth" }}
+        >
           <div className="max-w-3xl mx-auto space-y-5 md:space-y-6">
             {msgsLoading ? (
               <div className="space-y-4" data-ocid="chat.loading_state">
@@ -867,7 +891,7 @@ export function ChatPage({
                     How can I help you today?
                   </h3>
                   <p className="text-muted-foreground text-xs md:text-sm">
-                    Ask me to write code, explain concepts, or explore any idea.
+                    Ask me anything — coding, GK, science, math, or just chat!
                   </p>
                 </div>
               </div>
@@ -884,9 +908,9 @@ export function ChatPage({
               ))
             )}
             {isTyping && <TypingIndicator />}
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} style={{ height: 1 }} />
           </div>
-        </ScrollArea>
+        </div>
 
         <div
           className="px-3 md:px-8 py-3 md:py-4 shrink-0"
@@ -911,7 +935,6 @@ export function ChatPage({
                 data-ocid="chat.textarea"
               />
               <div className="absolute right-2 bottom-2.5 flex items-center gap-1.5">
-                {/* Mic button */}
                 <button
                   type="button"
                   onClick={handleMicToggle}
@@ -935,7 +958,6 @@ export function ChatPage({
                   {isRecording ? <MicOff size={14} /> : <Mic size={14} />}
                 </button>
 
-                {/* Send button */}
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || isTyping}

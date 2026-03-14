@@ -89,6 +89,20 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface http_request_result {
+    status: bigint;
+    body: Uint8Array;
+    headers: Array<http_header>;
+}
+export interface TransformationOutput {
+    status: bigint;
+    body: Uint8Array;
+    headers: Array<http_header>;
+}
+export interface TransformationInput {
+    context: Uint8Array;
+    response: http_request_result;
+}
 export interface Message {
     id: bigint;
     content: string;
@@ -107,6 +121,10 @@ export interface UserProfile {
     createdDate: bigint;
     email: string;
 }
+export interface http_header {
+    value: string;
+    name: string;
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -115,13 +133,17 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    callDeepSeek(userMessage: string): Promise<string>;
     createConversation(title: string): Promise<Conversation>;
+    createGuestConversation(sessionId: string, title: string): Promise<Conversation>;
     getAllConversations(): Promise<Array<[Principal, Array<Conversation>]>>;
     getAllUsers(): Promise<Array<UserProfile>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getConversation(conversationId: bigint): Promise<Conversation>;
     getConversations(): Promise<Array<Conversation>>;
+    getGuestConversations(sessionId: string): Promise<Array<Conversation>>;
+    getGuestMessages(sessionId: string, conversationId: bigint): Promise<Array<Message>>;
     getMessages(conversationId: bigint): Promise<Array<Message>>;
     getProfile(username: string): Promise<UserProfile>;
     getUserConversation(user: Principal, conversationId: bigint): Promise<Conversation>;
@@ -130,9 +152,11 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     login(username: string, password: string): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    sendGuestMessage(sessionId: string, conversationId: bigint, content: string, role: string): Promise<Message>;
     sendMessage(conversationId: bigint, content: string, role: string): Promise<Message>;
     signUp(username: string, password: string, email: string, displayName: string): Promise<boolean>;
     systemDescription(): Promise<string>;
+    transform(input: TransformationInput): Promise<TransformationOutput>;
 }
 import type { UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -165,6 +189,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async callDeepSeek(arg0: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.callDeepSeek(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.callDeepSeek(arg0);
+            return result;
+        }
+    }
     async createConversation(arg0: string): Promise<Conversation> {
         if (this.processError) {
             try {
@@ -176,6 +214,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.createConversation(arg0);
+            return result;
+        }
+    }
+    async createGuestConversation(arg0: string, arg1: string): Promise<Conversation> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createGuestConversation(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createGuestConversation(arg0, arg1);
             return result;
         }
     }
@@ -260,6 +312,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getConversations();
+            return result;
+        }
+    }
+    async getGuestConversations(arg0: string): Promise<Array<Conversation>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGuestConversations(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGuestConversations(arg0);
+            return result;
+        }
+    }
+    async getGuestMessages(arg0: string, arg1: bigint): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGuestMessages(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGuestMessages(arg0, arg1);
             return result;
         }
     }
@@ -375,6 +455,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async sendGuestMessage(arg0: string, arg1: bigint, arg2: string, arg3: string): Promise<Message> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.sendGuestMessage(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.sendGuestMessage(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async sendMessage(arg0: bigint, arg1: string, arg2: string): Promise<Message> {
         if (this.processError) {
             try {
@@ -414,6 +508,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.systemDescription();
+            return result;
+        }
+    }
+    async transform(arg0: TransformationInput): Promise<TransformationOutput> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.transform(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.transform(arg0);
             return result;
         }
     }
