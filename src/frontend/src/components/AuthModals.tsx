@@ -34,7 +34,12 @@ export function LoginModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actor) return;
+    if (!actor) {
+      setError(
+        "App abhi connect ho rahi hai, thoda wait karo aur dobara try karo.",
+      );
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -43,10 +48,10 @@ export function LoginModal({
         toast.success("Welcome back!");
         onSuccess();
       } else {
-        setError("Invalid username or password.");
+        setError("Username ya password galat hai. Dobara check karo.");
       }
     } catch {
-      setError("Login failed. Please try again.");
+      setError("Login fail hua. Thodi der baad try karo.");
     } finally {
       setLoading(false);
     }
@@ -77,7 +82,7 @@ export function LoginModal({
               id="login-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Apna username daalo"
               required
               data-ocid="login.input"
               className="bg-muted border-border"
@@ -91,7 +96,7 @@ export function LoginModal({
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="Apna password daalo"
                 required
                 className="bg-muted border-border pr-10"
               />
@@ -106,7 +111,8 @@ export function LoginModal({
           </div>
           {error && (
             <p
-              className="text-sm text-destructive"
+              className="text-sm"
+              style={{ color: "oklch(0.65 0.22 25)" }}
               data-ocid="login.error_state"
             >
               {error}
@@ -126,7 +132,7 @@ export function LoginModal({
             {loading ? "Signing in..." : "Sign In"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Account nahi hai?{" "}
             <button
               type="button"
               onClick={onSwitchToSignup}
@@ -134,7 +140,7 @@ export function LoginModal({
               style={{ color: "oklch(0.7 0.2 185)" }}
               data-ocid="login.link"
             >
-              Sign Up
+              Sign Up karo
             </button>
           </p>
         </form>
@@ -167,19 +173,37 @@ export function SignupModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actor) return;
+    if (password.length < 4) {
+      setError("Password kam se kam 4 characters ka hona chahiye.");
+      return;
+    }
+    if (!actor) {
+      setError(
+        "App abhi connect ho rahi hai, thoda wait karo aur dobara try karo.",
+      );
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const ok = await actor.signUp(username, password, email, displayName);
       if (ok) {
-        toast.success("Account created! Welcome to Om.ai");
+        toast.success("Account ban gaya! Om.ai mein welcome hai");
         onSuccess();
       } else {
-        setError("Username may already be taken. Please try another.");
+        setError(
+          "Yeh username already le liya gaya hai. Dusra username try karo.",
+        );
       }
-    } catch {
-      setError("Sign up failed. Please try again.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("already taken")) {
+        setError(
+          "Yeh username already le liya gaya hai. Dusra username try karo.",
+        );
+      } else {
+        setError("Sign up fail hua. Please dobara try karo.");
+      }
     } finally {
       setLoading(false);
     }
@@ -205,36 +229,46 @@ export function SignupModal({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3 mt-2">
           <div className="space-y-2">
-            <Label htmlFor="signup-name">Display Name</Label>
+            <Label htmlFor="signup-name">Apna Naam</Label>
             <Input
               id="signup-name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your full name"
+              placeholder="Jaise: Om Awasthi"
               required
               className="bg-muted border-border"
               data-ocid="signup.input"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="signup-username">Username</Label>
+            <Label htmlFor="signup-username">
+              Username{" "}
+              <span className="text-muted-foreground text-xs">
+                (login ke liye use hoga)
+              </span>
+            </Label>
             <Input
               id="signup-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Choose a username"
+              placeholder="Jaise: om123"
               required
               className="bg-muted border-border"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="signup-email">Email</Label>
+            <Label htmlFor="signup-email">
+              Email{" "}
+              <span className="text-muted-foreground text-xs">
+                (koi bhi, real nahi chahiye)
+              </span>
+            </Label>
             <Input
               id="signup-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
+              placeholder="Jaise: om@gmail.com"
               required
               className="bg-muted border-border"
             />
@@ -247,7 +281,7 @@ export function SignupModal({
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a strong password"
+                placeholder="Koi bhi password (min 4 characters)"
                 required
                 className="bg-muted border-border pr-10"
               />
@@ -259,10 +293,14 @@ export function SignupModal({
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Sirf 4+ characters chahiye -- jaise: om12, 1234, abcd
+            </p>
           </div>
           {error && (
             <p
-              className="text-sm text-destructive"
+              className="text-sm"
+              style={{ color: "oklch(0.65 0.22 25)" }}
               data-ocid="signup.error_state"
             >
               {error}
@@ -279,10 +317,10 @@ export function SignupModal({
             data-ocid="signup.submit_button"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Creating account..." : "Create Account"}
+            {loading ? "Account ban raha hai..." : "Account Banao"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            Pehle se account hai?{" "}
             <button
               type="button"
               onClick={onSwitchToLogin}
@@ -290,7 +328,7 @@ export function SignupModal({
               style={{ color: "oklch(0.7 0.2 185)" }}
               data-ocid="signup.link"
             >
-              Sign In
+              Login karo
             </button>
           </p>
         </form>

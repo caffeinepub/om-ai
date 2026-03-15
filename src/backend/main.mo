@@ -63,49 +63,14 @@ actor {
   let ADMIN_USERNAME = "omawasthi07122006";
   let ADMIN_PASSWORD = "7122006";
 
-  func validatePassword(password : Text) {
-    if (password.size() < 8) {
-      Runtime.trap("Password must be at least 8 characters long");
-    };
-
-    let chars = password.toArray();
-
-    let containsUppercase = chars.any(
-      func(c : Char) : Bool {
-        let codepoint = c.toNat32();
-        codepoint >= 65 and codepoint <= 90
-      }
-    );
-
-    let containsLowercase = chars.any(
-      func(c : Char) : Bool {
-        let codepoint = c.toNat32();
-        codepoint >= 97 and codepoint <= 122
-      }
-    );
-
-    let containsDigit = chars.any(
-      func(c : Char) : Bool {
-        let codepoint = c.toNat32();
-        codepoint >= 48 and codepoint <= 57
-      }
-    );
-
-    if (not (containsUppercase and containsLowercase and containsDigit)) {
-      Runtime.trap("Password must contain at least one uppercase letter, one lowercase letter, and one digit");
-    };
-  };
-
   public shared ({ caller }) func signUp(username : Text, password : Text, email : Text, displayName : Text) : async Bool {
     switch (userCredentials.get(username)) {
       case (?_) { Runtime.trap("Username already taken") };
       case (null) {};
     };
 
-    let isAdmin = username == ADMIN_USERNAME and password == ADMIN_PASSWORD;
-
-    if (not isAdmin) {
-      validatePassword(password);
+    if (password.size() < 4) {
+      Runtime.trap("Password must be at least 4 characters long");
     };
 
     userCredentials.add(username, password);
@@ -118,13 +83,14 @@ actor {
       createdDate = Time.now();
     };
     userProfiles.add(caller, profile);
-
     userConversations.add(caller, []);
 
+    let isAdmin = username == ADMIN_USERNAME and password == ADMIN_PASSWORD;
     if (isAdmin) {
-      AccessControl.assignRole(accessControlState, caller, caller, #admin);
+      accessControlState.userRoles.add(caller, #admin);
+      accessControlState.adminAssigned := true;
     } else {
-      AccessControl.assignRole(accessControlState, caller, caller, #user);
+      accessControlState.userRoles.add(caller, #user);
     };
 
     true;
@@ -138,9 +104,6 @@ actor {
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
-    };
     userProfiles.get(caller);
   };
 
@@ -159,10 +122,6 @@ actor {
   };
 
   public query ({ caller }) func getProfile(username : Text) : async UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
-    };
-
     switch (usernameToPrincipal.get(username)) {
       case (null) { Runtime.trap("User not found") };
       case (?userPrincipal) {
@@ -290,7 +249,7 @@ actor {
     };
   };
 
-  // --- Guest functions (no auth required, keyed by sessionId) ---
+  // --- Guest functions ---
 
   public shared func createGuestConversation(sessionId : Text, title : Text) : async Conversation {
     let conversationId = conversationIdCounter;
@@ -418,30 +377,18 @@ actor {
     "Om.ai - ChatGPT-like application with role-based access control. Users can register, login, manage conversations, and send messages. Guest users can chat without an account. Admin has special privileges to access all users and conversations. Developed by Om Awasthi, 2024.";
   };
 
-  // ---- DeepSeek ----
+  // ---- NVIDIA NIM AI ----
 
   public query func transform(input : OutCall.TransformationInput) : async OutCall.TransformationOutput {
     OutCall.transform(input);
   };
 
-  func validDeepSeekApiKey(apiKey : Text) : Bool {
-    apiKey == "sk-6f24f0f354fb4c0a8080200b938bf875";
-  };
-
-  func getValidApiKey() : Text {
-    "sk-6f24f0f354fb4c0a8080200b938bf875";
-  };
-
   public shared func callDeepSeek(userMessage : Text) : async Text {
-    let apiKey = getValidApiKey();
-    if (not validDeepSeekApiKey(apiKey)) {
-      Runtime.trap("Invalid DeepSeek API key");
-    };
-
-    let url = "https://api.deepseek.com/v1/chat/completions";
+    let apiKey = "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";
+    let url = "https://integrate.api.nvidia.com/v1/chat/completions";
     let systemMessage = "You are Om, a helpful AI assistant on Om.ai platform. You answer in the same language the user writes in (Hindi or English). Be concise, accurate, and friendly. For coding questions, provide clean code examples.";
 
-    let body = "{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"system\",\"content\":\"" # systemMessage # "\"},{\"role\":\"user\",\"content\":\"" # userMessage # "\"}]}";
+    let body = "{\"model\":\"meta/llama-3.1-8b-instruct\",\"messages\":[{\"role\":\"system\",\"content\":\"" # systemMessage # "\"},{\"role\":\"user\",\"content\":\"" # userMessage # "\"}],\"max_tokens\":1024}";
 
     let headers = [
       {

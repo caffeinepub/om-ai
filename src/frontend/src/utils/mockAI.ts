@@ -660,16 +660,6 @@ export function getMockResponse(input: string): string {
     return "Sab theek hai! Main Om hoon — Om.ai ka AI assistant. Koi bhi sawaal poochh sakte hain: GK, coding, science, maths, ya koi bhi topic!";
   }
 
-  // ---- WHAT IS / EXPLAIN ----
-  if (/what is|explain|define|tell me about/.test(lower)) {
-    const topic = lower
-      .replace(/what is|explain|define|tell me about/, "")
-      .trim();
-    if (topic.length > 2) {
-      return `**${topic.charAt(0).toUpperCase() + topic.slice(1)}** is an important concept. Here's what I know:\n\nThis topic has several key aspects worth exploring. For the most accurate and detailed answer, please ask more specifically:\n\n- "Explain ${topic} in science"\n- "What is ${topic} in mathematics"\n- "History of ${topic}"\n\nI'll give you a much better targeted answer!`;
-    }
-  }
-
   // ---- DEFAULT ----
-  return `I understand you asked: **"${input}"**\n\nI can help with many topics! Try asking:\n\n**🇮🇳 India:** capitals, history, cricket, Bollywood, ISRO, festivals\n**🔬 Science:** physics, chemistry, biology, space\n**🧮 Maths:** calculations, formulas, prime numbers\n**💻 Coding:** Python, JavaScript, React, CSS, Git\n**🌍 World:** capitals, world records, history\n**🤖 Tech:** AI, internet, blockchain, 5G\n\nAsk with more detail for a better answer!`;
+  return "Sorry, is sawaal ka jawab mere paas nahi hai. Koi aur sawaal poochho!";
 }

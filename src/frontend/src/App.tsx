@@ -5,8 +5,9 @@ import { AdminLogin } from "./pages/AdminLogin";
 import { AdminPanel } from "./pages/AdminPanel";
 import { ChatPage } from "./pages/ChatPage";
 import { LandingPage } from "./pages/LandingPage";
+import { VoiceModePage } from "./pages/VoiceModePage";
 
-type View = "landing" | "chat" | "admin-login" | "admin-panel";
+type View = "landing" | "chat" | "admin-login" | "admin-panel" | "voice-mode";
 
 const GUEST_SESSION_KEY = "om_guest_session_id";
 
@@ -79,6 +80,7 @@ export default function App() {
           isGuest={isGuest}
           guestSessionId={guestSessionId}
           onSignUp={handleGuestSignUp}
+          onVoiceMode={() => setView("voice-mode")}
         />
       )}
       {view === "admin-login" && (
@@ -88,6 +90,9 @@ export default function App() {
         />
       )}
       {view === "admin-panel" && <AdminPanel onLogout={handleLogout} />}
+      {view === "voice-mode" && (
+        <VoiceModePage onBack={() => setView("chat")} />
+      )}
       <LoginModal
         open={showLogin}
         onClose={() => setShowLogin(false)}
