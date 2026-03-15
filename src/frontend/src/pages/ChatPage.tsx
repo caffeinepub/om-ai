@@ -519,6 +519,32 @@ export function ChatPage({
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
+      const lower = transcript.toLowerCase().trim();
+
+      // Voice copy command: copy all conversation messages
+      if (
+        lower.includes("copy all text") ||
+        lower.includes("saara text copy") ||
+        lower.includes("sab copy karo")
+      ) {
+        const msgs = messages;
+        if (msgs && msgs.length > 0) {
+          const formatted = msgs
+            .map(
+              (m: { role: string; content: string }) =>
+                `${m.role === "user" ? "User" : "AI"}: ${m.content}`,
+            )
+            .join("\n\n");
+          navigator.clipboard
+            .writeText(formatted)
+            .then(() => toast.success("Saara conversation copy ho gaya!"))
+            .catch(() => toast.error("Copy failed. Please try manually."));
+        } else {
+          toast.info("Abhi koi conversation nahi hai.");
+        }
+        return;
+      }
+
       setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
     };
     recognition.onerror = () => {
@@ -532,7 +558,7 @@ export function ChatPage({
     recognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
-  }, [isRecording, voiceLang]);
+  }, [isRecording, voiceLang, messages]);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 

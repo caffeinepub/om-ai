@@ -1,34 +1,30 @@
 # Om.ai
 
 ## Current State
-The app has a Voice Mode page (VoiceModePage.tsx) with a Doraemon-style character and voice conversation. Character selection buttons (Doraemon, Chhota Bheem, Thor, Spiderman, Captain America) currently exist in ChatPage.tsx as a floating right-side panel and mobile strip. VoiceModePage.tsx shows only the Doraemon image hardcoded without character switching.
+- App has a visible WakeWordBadge green button at top/bottom-right that shows even without "Suno Om" command
+- SunoOmOverlay is the bottom-sheet wake word UI with voice commands
+- VoiceModePage has 25+ app-opening voice commands
+- ChatPage has STT mic input
+- No screenshot or "copy all text" voice commands exist yet
 
 ## Requested Changes (Diff)
 
 ### Add
-- Character selection UI inside VoiceModePage: a horizontal strip or grid of character cards at the top or bottom of the Voice Mode page, each showing the character's illustrated image thumbnail and name
-- Each character image displayed as the main animated character when selected
-- Character-specific voice personality prompts already exist in ChatPage (CHARACTERS config) -- move/replicate this config to VoiceModePage
-- New character images to use:
-  - Doraemon: `/assets/generated/doraemon-char-transparent.dim_400x400.png`
-  - Chhota Bheem: `/assets/generated/chhota-bheem-char-transparent.dim_400x400.png`
-  - Thor: `/assets/generated/thor-char-transparent.dim_400x400.png`
-  - Spider-Man: `/assets/generated/spiderman-char-transparent.dim_400x400.png`
-  - Captain America: `/assets/generated/captain-america-char-transparent.dim_400x400.png`
+- Screenshot voice command: When user says "screenshot lo" or "screenshot" in SunoOmOverlay or VoiceModePage, use browser's built-in screen capture approach (window.print() or html2canvas if available, otherwise open browser print dialog)
+- "Copy all text" voice command: When user says "copy all text", "saara text copy karo", "copy karo saara text" etc. in SunoOmOverlay, copy all chat messages (passed as prop) to clipboard and confirm via voice
+- "Copy all text" voice command in ChatPage's STT mic handler: detect this phrase and copy all messages
 
 ### Modify
-- VoiceModePage.tsx: replace hardcoded Doraemon image with dynamic character image based on selectedCharacter state; add character selection UI; move CHARACTERS config here
-- ChatPage.tsx: completely remove character selector panel (right-side floating buttons) and mobile character strip; remove all related state (selectedCharacter, setSelectedCharacter in ChatPage); remove CHARACTERS config from ChatPage
+- WakeWordBadge: Remove the visible button/badge entirely. Keep ONLY the background SpeechRecognition listener for "Suno Om" wake word. The component should render nothing (return null for JSX) but keep the useEffect listener logic intact.
+- SunoOmOverlay: Accept optional `messages` prop (array of {role, content}) from ChatPage. Add screenshot and copy-all-text commands.
+- ChatPage: Pass current conversation messages to SunoOmOverlay as prop. In STT mic handler, detect "copy all text" phrase and copy all messages to clipboard.
+- VoiceModePage: Add screenshot voice command in handleSpecialCommand.
 
 ### Remove
-- Character selector panel from ChatPage.tsx right side
-- Mobile character strip from ChatPage.tsx
-- CHARACTERS config and selectedCharacter state from ChatPage.tsx
+- The visible green pulsing badge/button from WakeWordBadge
 
 ## Implementation Plan
-1. In VoiceModePage.tsx: add CHARACTERS config with image paths, name, emoji, voice personality prompt for each of the 5 characters
-2. Add selectedCharacter state defaulting to 'doraemon'
-3. Replace hardcoded doraemon image src with `CHARACTERS[selectedCharacter].image`
-4. Add character selection strip (horizontal scrollable row) showing all 5 character thumbnails with names -- clicking one sets selectedCharacter
-5. In ChatPage.tsx: remove the character selector panel, mobile character strip, CHARACTERS config, and selectedCharacter state entirely
-6. Remove the "I can help you with: Knowledge..." static text from ChatPage's empty state
+1. Edit WakeWordBadge.tsx - remove JSX button, keep only speech recognition listener that triggers onActivate
+2. Edit SunoOmOverlay.tsx - add `messages?: Array<{role:string, content:string}>` prop, add screenshot command (window.print()), add copy-all-text command using navigator.clipboard.writeText
+3. Edit ChatPage.tsx - pass messages to SunoOmOverlay, detect "copy all text" in STT handler
+4. Edit VoiceModePage.tsx - add screenshot command in handleSpecialCommand
